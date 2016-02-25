@@ -63,12 +63,23 @@ for filename in os.listdir(args.path):
                     d[keyword] = 1
                 break
 
+def humanize(bytes):
+    if bytes < 1024:
+        return "%d B" % bytes
+    elif bytes < 1024 ** 2:
+        return "%.1f kB" % (bytes / 1024.0)
+    elif bytes < 1024 ** 3:
+        return "%.1f MB" % (bytes / 1024.0 ** 2)
+    else:
+        return "%.1f GB" % (bytes / 1024.0 ** 3)
+
+    
 print
 print("Top 5 bandwidth hoggers:")
 results = user_bytes.items()
 results.sort(key = lambda item:item[1], reverse=True)
 for user, transferred_bytes in results[:5]:
-    print user, "==>", transferred_bytes / (1024 * 1024), "MB"
+    print user, "==>", humanize(transferred_bytes)
     
 print
 print("Top 5 visited URL-s:")
