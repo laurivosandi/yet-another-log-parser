@@ -1,7 +1,17 @@
+import argparse
 import os
 import urllib
- 
-root = "/var/log/apache2"
+
+parser = argparse.ArgumentParser(description='Apache2 log parser.')
+parser.add_argument('--path',
+    help="Path to Apache2 log files", default="/var/log/apache2")
+parser.add_argument('--top-urls',
+    help="Find top URL-s", action='store_true')
+parser.add_argument('--geoip',
+    help="Resolve IP-s to country codes", action='store_true') # We'll implement this later ;)
+parser.add_argument('--verbose',
+    help="Increase verbosity", action="store_true")
+args = parser.parse_args()
 
 keywords = "Windows", "Linux", "OS X", "Ubuntu", "Googlebot", "bingbot", "Android", "YandexBot", "facebookexternalhit"
 d = {} # Curly braces define empty dictionary
@@ -10,14 +20,15 @@ user_bytes = {}
 
 total = 0
 import gzip
-for filename in os.listdir(root):
+for filename in os.listdir(args.path):
     if not filename.startswith("access.log"):
         continue
     if filename.endswith(".gz"):
-        fh = gzip.open(os.path.join(root, filename))
+        fh = gzip.open(os.path.join(args.path, filename))
     else:
-        fh = open(os.path.join(root, filename))
-    print "Parsing:", filename
+        fh = open(os.path.join(args.path, filename))
+    if args.verbose:
+        print "Parsing:", filename
     for line in fh:
         total = total + 1
         try:
