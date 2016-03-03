@@ -1,6 +1,7 @@
 import argparse
 import os
 import urllib
+import GeoIP
 
 parser = argparse.ArgumentParser(description='Apache2 log parser.')
 parser.add_argument('--path',
@@ -8,16 +9,18 @@ parser.add_argument('--path',
 parser.add_argument('--top-urls',
     help="Find top URL-s", action='store_true')
 parser.add_argument('--geoip',
-    help="Resolve IP-s to country codes", action='store_true') # We'll implement this later ;)
+    help="Resolve IP-s to country codes", default="/usr/share/GeoIP/GeoIP.dat")
 parser.add_argument('--verbose',
     help="Increase verbosity", action="store_true")
 args = parser.parse_args()
+
+gi = GeoIP.open(args.geoip, GeoIP.GEOIP_MEMORY_CACHE)
 
 keywords = "Windows", "Linux", "OS X", "Ubuntu", "Googlebot", "bingbot", "Android", "YandexBot", "facebookexternalhit"
 d = {} # Curly braces define empty dictionary
 urls = {}
 user_bytes = {}
-
+countries = {}
 ip_addresses = {} # Here we are going to collect "hits per IP-address"
 
 total = 0
@@ -43,7 +46,8 @@ for filename in os.listdir(args.path):
 
         if not ":" in source_ip: # Skip IPv6
             ip_addresses[source_ip] = ip_addresses.get(source_ip, 0) + 1
-
+            cc = gi.country_code_by_addr(source_ip)
+            countries[cc] = countries.get(cc, 0) + 1
         if path == "*": continue # Skip asterisk for path
 
         _, status_code, content_length, _ = response.split(" ")
@@ -79,6 +83,23 @@ def humanize(bytes):
         return "%.1f MB" % (bytes / 1024.0 ** 2)
     else:
         return "%.1f GB" % (bytes / 1024.0 ** 3)
+
+
+from lxml import etree
+from lxml.cssselect import CSSSelector
+
+document =  etree.parse(open('BlankMap-World6.svg'))
+
+for country_code, hits in countries.items():
+    sel = CSSSelector("#" + country_code)
+    for j in sel(document):
+        j.set("style", "fill:red")
+        # Remove styling from children
+        for i in j.iterfind("{http://www.w3.org/2000/svg}path"):
+            i.attrib.pop("class", "")
+
+with open("highlighted.svg", "w") as fh:
+    fh.write(etree.tostring(document))
 
 print
 print("Top IP-addresses:")
