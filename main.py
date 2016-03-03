@@ -18,6 +18,8 @@ d = {} # Curly braces define empty dictionary
 urls = {}
 user_bytes = {}
 
+ip_addresses = {} # Here we are going to collect "hits per IP-address"
+
 total = 0
 import gzip
 for filename in os.listdir(args.path):
@@ -36,7 +38,12 @@ for filename in os.listdir(args.path):
             method, path, protocol = request.split(" ")
         except ValueError:
             continue # Skip garbage
-            
+
+        source_ip, _, _, timestamp = source_timestamp.split(" ", 3)
+
+        if not ":" in source_ip: # Skip IPv6
+            ip_addresses[source_ip] = ip_addresses.get(source_ip, 0) + 1
+
         if path == "*": continue # Skip asterisk for path
 
         _, status_code, content_length, _ = response.split(" ")
@@ -73,7 +80,13 @@ def humanize(bytes):
     else:
         return "%.1f GB" % (bytes / 1024.0 ** 3)
 
-    
+print
+print("Top IP-addresses:")
+results = ip_addresses.items()
+results.sort(key = lambda item:item[1], reverse=True)
+for source_ip, hits in results[:5]:
+    print source_ip, "==>", hits
+
 print
 print("Top 5 bandwidth hoggers:")
 results = user_bytes.items()
