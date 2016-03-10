@@ -3,7 +3,13 @@ import os
 import urllib
 import GeoIP
 
+# This will contain main.py and templates
+PROJECT_ROOT = os.path.dirname(__file__)
+
 parser = argparse.ArgumentParser(description='Apache2 log parser.')
+parser.add_argument('--output',
+    help="This is where we place the output files such as report.html and map.svg",
+    default='build')
 parser.add_argument('--path',
     help="Path to Apache2 log files", default="/var/log/apache2")
 parser.add_argument('--top-urls',
@@ -92,7 +98,7 @@ def humanize(bytes):
 from lxml import etree
 from lxml.cssselect import CSSSelector
 
-document =  etree.parse(open('templates/map.svg'))
+document =  etree.parse(open(os.path.join(PROJECT_ROOT, 'templates', 'map.svg')))
 
 max_hits = max(countries.values())
 
@@ -110,13 +116,13 @@ for country_code, hits in countries.items():
         for i in j.iterfind("{http://www.w3.org/2000/svg}path"):
             i.attrib.pop("class", "")
 
-with open("build/map.svg", "w") as fh:
+with open(os.path.join(args.output, "map.svg"), "w") as fh:
     fh.write(etree.tostring(document))
 
 from jinja2 import Environment, FileSystemLoader # This it the templating engine we will use
 
 env = Environment(
-    loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates")),
+    loader=FileSystemLoader(os.path.join(PROJECT_ROOT, "templates")),
     trim_blocks=True)
 
 import codecs
@@ -130,7 +136,7 @@ context = {
     "user_bytes": sorted(user_bytes.items(), key = lambda item:item[1], reverse=True),
 }
 
-with codecs.open("build/report.html", "w", encoding="utf-8") as fh:
+with codecs.open(os.path.join(args.output, "report.html"), "w", encoding="utf-8") as fh:
     fh.write(env.get_template("report.html").render(context))
 
     # A more convenient way is to use env.get_template("...").render(locals())
