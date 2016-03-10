@@ -14,7 +14,11 @@ parser.add_argument('--verbose',
     help="Increase verbosity", action="store_true")
 args = parser.parse_args()
 
-gi = GeoIP.open(args.geoip, GeoIP.GEOIP_MEMORY_CACHE)
+try:
+    gi = GeoIP.open(args.geoip, GeoIP.GEOIP_MEMORY_CACHE)
+except:
+    print "Failed to open up GeoIP database, are you sure %s exists?" % args.geoip
+    exit(255)
 
 keywords = "Windows", "Linux", "OS X", "Ubuntu", "Googlebot", "bingbot", "Android", "YandexBot", "facebookexternalhit"
 d = {} # Curly braces define empty dictionary
@@ -88,20 +92,53 @@ def humanize(bytes):
 from lxml import etree
 from lxml.cssselect import CSSSelector
 
-document =  etree.parse(open('BlankMap-World6.svg'))
+document =  etree.parse(open('templates/map.svg'))
+
+max_hits = max(countries.values())
 
 for country_code, hits in countries.items():
-    sel = CSSSelector("#" + country_code)
+    if not country_code: continue # Skip localhost, sattelite phones etc
+    print country_code, hex(hits * 255 / max_hits)[2:] # 2: skips 0x of hexadecimal number
+    sel = CSSSelector("#" + country_code.lower())
     for j in sel(document):
-        j.set("style", "fill:red")
+        # Instead of RGB it makes sense to use hue-saturation-luma color coding
+        # 120 degrees is green, 0 degrees is red
+        # we want 0 to max hits to be correlated from green to red
+        j.set("style", "fill:hsl(%d, 90%%, 70%%);" % (120 - hits * 120 / max_hits))
+
         # Remove styling from children
         for i in j.iterfind("{http://www.w3.org/2000/svg}path"):
             i.attrib.pop("class", "")
 
-with open("highlighted.svg", "w") as fh:
+with open("build/map.svg", "w") as fh:
     fh.write(etree.tostring(document))
 
-print
+from jinja2 import Environment, FileSystemLoader # This it the templating engine we will use
+
+env = Environment(
+    loader=FileSystemLoader(os.path.join(os.path.dirname(__file__), "templates")),
+    trim_blocks=True)
+
+import codecs
+
+# This is the context variable for our template, these are the only
+# variables that can be accessed inside template
+
+context = {
+    "humanize": humanize, # This is why we use locals() :D
+    "url_hits": sorted(urls.items(), key=lambda i:i[1], reverse=True),
+    "user_bytes": sorted(user_bytes.items(), key = lambda item:item[1], reverse=True),
+}
+
+with codecs.open("build/report.html", "w", encoding="utf-8") as fh:
+    fh.write(env.get_template("report.html").render(context))
+
+    # A more convenient way is to use env.get_template("...").render(locals())
+    # locals() is a dict which contains all locally defined variables ;)
+
+os.system("x-www-browser file://" + os.path.realpath("build/report.html") + " &")
+
+
 print("Top IP-addresses:")
 results = ip_addresses.items()
 results.sort(key = lambda item:item[1], reverse=True)
@@ -109,16 +146,14 @@ for source_ip, hits in results[:5]:
     print source_ip, "==>", hits
 
 print
-print("Top 5 bandwidth hoggers:")
-results = user_bytes.items()
-results.sort(key = lambda item:item[1], reverse=True)
-for user, transferred_bytes in results[:5]:
-    print user, "==>", humanize(transferred_bytes)
-    
-print
 print("Top 5 visited URL-s:")
 results = urls.items()
 results.sort(key = lambda item:item[1], reverse=True)
 for path, hits in results[:5]:
     print "http://enos.itcollege.ee" + path, "==>", hits, "(", hits * 100 / total, "%)"
+
+
+
+print "The value of __file__ is:", os.path.realpath(__file__)
+print "The directory of __file__ is:", os.path.realpath(os.path.dirname(__file__))
 
