@@ -1,9 +1,10 @@
+
 import argparse
 import os
-import urllib
 import GeoIP
+from logparser import LogParser
 
-# This will contain main.py and templates
+# This directory should contain main.py and templates
 PROJECT_ROOT = os.path.dirname(__file__)
 
 parser = argparse.ArgumentParser(description='Apache2 log parser.')
@@ -18,71 +19,42 @@ parser.add_argument('--geoip',
     help="Resolve IP-s to country codes", default="/usr/share/GeoIP/GeoIP.dat")
 parser.add_argument('--verbose',
     help="Increase verbosity", action="store_true")
+parser.add_argument('--skip-compressed',
+    help="Skip compressed files", action="store_true")
 args = parser.parse_args()
 
 try:
     gi = GeoIP.open(args.geoip, GeoIP.GEOIP_MEMORY_CACHE)
-except:
-    print "Failed to open up GeoIP database, are you sure %s exists?" % args.geoip
-    exit(255)
+except GeoIP.error:
+    print "Failed to open up GeoIP database, it seems %s does not exist!" % os.path.realpath(args.geoip)
+    exit(254)
 
-keywords = "Windows", "Linux", "OS X", "Ubuntu", "Googlebot", "bingbot", "Android", "YandexBot", "facebookexternalhit"
-d = {} # Curly braces define empty dictionary
-urls = {}
-user_bytes = {}
-countries = {}
-ip_addresses = {} # Here we are going to collect "hits per IP-address"
-
-total = 0
 import gzip
+
+# Here we create an instance of the LogParser class
+# this object shall contain statistics for one run
+logparser = LogParser(gi, keywords = ("Windows", "Linux", "OS X"))
+
 for filename in os.listdir(args.path):
-    if not filename.startswith("access.log"):
+    if not filename.startswith("access."):
         continue
+
     if filename.endswith(".gz"):
+        if args.skip_compressed:
+            continue
         fh = gzip.open(os.path.join(args.path, filename))
     else:
         fh = open(os.path.join(args.path, filename))
+
     if args.verbose:
         print "Parsing:", filename
-    for line in fh:
-        total = total + 1
-        try:
-            source_timestamp, request, response, referrer, _, agent, _ = line.split("\"")
-            method, path, protocol = request.split(" ")
-        except ValueError:
-            continue # Skip garbage
 
-        source_ip, _, _, timestamp = source_timestamp.split(" ", 3)
+    logparser.parse_file(fh)
 
-        if not ":" in source_ip: # Skip IPv6
-            ip_addresses[source_ip] = ip_addresses.get(source_ip, 0) + 1
-            cc = gi.country_code_by_addr(source_ip)
-            countries[cc] = countries.get(cc, 0) + 1
-        if path == "*": continue # Skip asterisk for path
+if not logparser.urls:
+    print "No log entries!"
+    exit(254)
 
-        _, status_code, content_length, _ = response.split(" ")
-        content_length = int(content_length)
-        path = urllib.unquote(path)
-        
-        if path.startswith("/~"):
-            username = path[2:].split("/")[0]
-            try:
-                user_bytes[username] = user_bytes[username] + content_length
-            except:
-                user_bytes[username] = content_length
-
-        try:
-            urls[path] = urls[path] + 1
-        except:
-            urls[path] = 1
-        
-        for keyword in keywords:
-            if keyword in agent:
-                try:
-                    d[keyword] = d[keyword] + 1
-                except KeyError:
-                    d[keyword] = 1
-                break
 
 def humanize(bytes):
     if bytes < 1024:
@@ -100,11 +72,10 @@ from lxml.cssselect import CSSSelector
 
 document =  etree.parse(open(os.path.join(PROJECT_ROOT, 'templates', 'map.svg')))
 
-max_hits = max(countries.values())
+max_hits = max(logparser.countries.values())
 
-for country_code, hits in countries.items():
+for country_code, hits in logparser.countries.items():
     if not country_code: continue # Skip localhost, sattelite phones etc
-    print country_code, hex(hits * 255 / max_hits)[2:] # 2: skips 0x of hexadecimal number
     sel = CSSSelector("#" + country_code.lower())
     for j in sel(document):
         # Instead of RGB it makes sense to use hue-saturation-luma color coding
@@ -132,8 +103,9 @@ import codecs
 
 context = {
     "humanize": humanize, # This is why we use locals() :D
-    "url_hits": sorted(urls.items(), key=lambda i:i[1], reverse=True),
-    "user_bytes": sorted(user_bytes.items(), key = lambda item:item[1], reverse=True),
+    "keyword_hits": sorted(logparser.d.items(), key=lambda i:i[1], reverse=True),
+    "url_hits": sorted(logparser.urls.items(), key=lambda i:i[1], reverse=True),
+    "user_bytes": sorted(logparser.user_bytes.items(), key = lambda item:item[1], reverse=True),
 }
 
 with codecs.open(os.path.join(args.output, "report.html"), "w", encoding="utf-8") as fh:
@@ -143,23 +115,4 @@ with codecs.open(os.path.join(args.output, "report.html"), "w", encoding="utf-8"
     # locals() is a dict which contains all locally defined variables ;)
 
 os.system("x-www-browser file://" + os.path.realpath("build/report.html") + " &")
-
-
-print("Top IP-addresses:")
-results = ip_addresses.items()
-results.sort(key = lambda item:item[1], reverse=True)
-for source_ip, hits in results[:5]:
-    print source_ip, "==>", hits
-
-print
-print("Top 5 visited URL-s:")
-results = urls.items()
-results.sort(key = lambda item:item[1], reverse=True)
-for path, hits in results[:5]:
-    print "http://enos.itcollege.ee" + path, "==>", hits, "(", hits * 100 / total, "%)"
-
-
-
-print "The value of __file__ is:", os.path.realpath(__file__)
-print "The directory of __file__ is:", os.path.realpath(os.path.dirname(__file__))
 

@@ -3,11 +3,12 @@
   <head>
     <meta charset="utf-8"/>
     <meta name="description" content="Introduction to this guy's website">
-    <title>Out awesome report</title>
+    <title>Our awesome report</title>
     <link rel="css/style.css" type="text/css"/>
     <script type="text/javascript" src="js/main.js"></script>
   </head>
   <body>
+    <h1>Top visiting countries</h1>
     <img src="map.svg"/>
     <h1>Top bandwidth hoggers</h1>
     <ul>
@@ -15,9 +16,20 @@
           <li>{{ user }}: {{ humanize(bytes) }}</li>
        {% endfor %}
     </ul>
+
+    <h1>Top keywords</h1>
+    <p>Most found keywords in log entries:</p>
+    <ul>
+       {% for keyword, hits in keyword_hits[:5] %}
+          <li>
+            {{ keyword }} - {{ hits }} hits
+          </li>
+       {% endfor %}
+    </ul>
+
     <h1>Top visited URL-s</h1>
     <ul>
-       {% for url, hits in user_bytes[:5] %}
+       {% for url, hits in url_hits[:5] %}
           <li>
             <a href="http://enos.itcollege.ee{{ url }}">
               enos.itcollege.ee{{ url }}
