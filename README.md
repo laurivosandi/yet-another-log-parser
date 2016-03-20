@@ -20,8 +20,8 @@ apt-get install python-geoip \
 On Mac OS X:
 ```
 brew install geoip
-pip install geoip \
-  ipaddr lxml cssselect
+pip install geoip ipaddr lxml \
+  cssselect humanize
 ```
 
 Usage
@@ -47,6 +47,12 @@ In case your log files are not under /var/log/apache2, specify the directory as 
 
 ```
 python main.py --path path/to/log/files/
+```
+
+To run interactive web server:
+
+```
+python web.py
 ```
 
 Credits

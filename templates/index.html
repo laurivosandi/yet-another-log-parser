@@ -1,0 +1,20 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="description" content="Introduction to this guy's website">
+    <title>Our awesome report</title>
+    <link rel="css/style.css" type="text/css"/>
+    <script type="text/javascript" src="js/main.js"></script>
+  </head>
+  <body>
+    <h1>Log files</h1>
+    <ul>
+      {% for log_file in log_files %}
+        <li>
+          <a href="/report/?filename={{ log_file }}">{{ log_file }}</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </body>
+</html>

@@ -2,6 +2,7 @@
 import argparse
 import os
 import GeoIP
+from maprender import render_map
 from logparser import LogParser
 
 # This directory should contain main.py and templates
@@ -66,30 +67,6 @@ def humanize(bytes):
     else:
         return "%.1f GB" % (bytes / 1024.0 ** 3)
 
-
-from lxml import etree
-from lxml.cssselect import CSSSelector
-
-document =  etree.parse(open(os.path.join(PROJECT_ROOT, 'templates', 'map.svg')))
-
-max_hits = max(logparser.countries.values())
-
-for country_code, hits in logparser.countries.items():
-    if not country_code: continue # Skip localhost, sattelite phones etc
-    sel = CSSSelector("#" + country_code.lower())
-    for j in sel(document):
-        # Instead of RGB it makes sense to use hue-saturation-luma color coding
-        # 120 degrees is green, 0 degrees is red
-        # we want 0 to max hits to be correlated from green to red
-        j.set("style", "fill:hsl(%d, 90%%, 70%%);" % (120 - hits * 120 / max_hits))
-
-        # Remove styling from children
-        for i in j.iterfind("{http://www.w3.org/2000/svg}path"):
-            i.attrib.pop("class", "")
-
-with open(os.path.join(args.output, "map.svg"), "w") as fh:
-    fh.write(etree.tostring(document))
-
 from jinja2 import Environment, FileSystemLoader # This it the templating engine we will use
 
 env = Environment(
@@ -98,10 +75,16 @@ env = Environment(
 
 import codecs
 
+# Here we use render_map function from maprender.py to generate colored map
+rendered_map = render_map(
+    open(os.path.join(PROJECT_ROOT, 'templates', 'map.svg')),
+    logparser.countries)
+
 # This is the context variable for our template, these are the only
 # variables that can be accessed inside template
 
 context = {
+    "map_svg": rendered_map,
     "humanize": humanize, # This is why we use locals() :D
     "keyword_hits": sorted(logparser.d.items(), key=lambda i:i[1], reverse=True),
     "url_hits": sorted(logparser.urls.items(), key=lambda i:i[1], reverse=True),

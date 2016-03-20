@@ -9,7 +9,7 @@
   </head>
   <body>
     <h1>Top visiting countries</h1>
-    <img src="map.svg"/>
+    {{ map_svg }}
     <h1>Top bandwidth hoggers</h1>
     <ul>
        {% for user, bytes in user_bytes[:5] %}
