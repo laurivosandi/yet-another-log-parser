@@ -31,26 +31,34 @@ except GeoIP.error:
     exit(254)
 
 import gzip
+from threading import Thread
 
-# Here we create an instance of the LogParser class
-# this object shall contain statistics for one run
+filenames = [j for j in os.listdir(args.path) if j.startswith("access.")]
 logparser = LogParser(gi, keywords = ("Windows", "Linux", "OS X"))
+class ParserThread(Thread):
+    def run(self):
+        while True:
+            try:
+                filename = filenames.pop()
+            except IndexError:
+                break
+            if filename.endswith(".gz"):
+                if args.skip_compressed:
+                    continue
+                fh = gzip.open(os.path.join(args.path, filename))
+            else:
+                fh = open(os.path.join(args.path, filename))
+            if args.verbose:
+                print "Parsing:", filename
+            logparser.parse_file(fh)
 
-for filename in os.listdir(args.path):
-    if not filename.startswith("access."):
-        continue
 
-    if filename.endswith(".gz"):
-        if args.skip_compressed:
-            continue
-        fh = gzip.open(os.path.join(args.path, filename))
-    else:
-        fh = open(os.path.join(args.path, filename))
-
-    if args.verbose:
-        print "Parsing:", filename
-
-    logparser.parse_file(fh)
+threads = [ParserThread() for j in range(0,4)]
+for thread in threads:
+    thread.daemon=True
+    thread.start()
+for thread in threads:
+    thread.join()
 
 if not logparser.urls:
     print "No log entries!"
