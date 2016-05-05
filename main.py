@@ -99,6 +99,14 @@ context = {
     "user_bytes": sorted(logparser.user_bytes.items(), key = lambda item:item[1], reverse=True),
 }
 
+
+import matplotlib.pyplot as plt
+
+fig = plt.figure( figsize=(10, 5))
+sub1 = fig.add_subplot(1, 1, 1)
+sub1.barh(logparser.hits_per_day.keys(), logparser.hits_per_day.values())
+fig.savefig(os.path.join(args.output, "hits_per_day.svg"), format="svg")
+
 with codecs.open(os.path.join(args.output, "report.html"), "w", encoding="utf-8") as fh:
     fh.write(env.get_template("report.html").render(context))
 

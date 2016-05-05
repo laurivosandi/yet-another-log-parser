@@ -1,6 +1,8 @@
 
 
 import urllib
+from collections import Counter
+from datetime import datetime
 
 class LogParser(object):
     def __init__(self, gi, keywords):
@@ -21,6 +23,7 @@ class LogParser(object):
         self.user_bytes = {}     # Bytes served per user
         self.countries = {}      # Hits per country code
         self.ip_addresses = {}   # Hits per source IP address
+        self.hits_per_day = Counter()
 
     def parse_file(self, fh):
         for line in fh:
@@ -32,6 +35,9 @@ class LogParser(object):
                 continue # Skip garbage
 
             source_ip, _, _, timestamp = source_timestamp.split(" ", 3)
+            date = datetime.strptime(timestamp[1:-8],
+                "%d/%b/%Y:%H:%M:%S").date()
+            self.hits_per_day[date] += 1
 
             if not ":" in source_ip: # Skip IPv6
                 self.ip_addresses[source_ip] = self.ip_addresses.get(source_ip, 0) + 1
